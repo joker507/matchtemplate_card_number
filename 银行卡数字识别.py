@@ -1,7 +1,10 @@
-'''时间：2020/5/22   0：49—— 2020/5/31
-
+'''时间：2020/5/31
    conding:utf-8
-   基于opencv match(模板匹配) 识别银行卡数字(4 * 4 )'''
+   基于opencv match(模板匹配) 识别银行卡数字(4 * 4 )
+   0和4 ；3 和 9 的相似度高，容易判断错误
+   阴影光线影响大
+   对数字呈现白色的容易识别一点
+   '''
 
 import cv2
 import numpy as np
@@ -54,7 +57,7 @@ for i in range(len(cont_list)):
     (x1,y1,w1,h1) =cv2.boundingRect(cont_list[i])
     # cv2.rectangle(template_img,(x1,y1),(x1+w1,y1+h1),255,3)
     # show(template_img)
-    tem = tem_thersh[y1-1:y1+h1+1,x1-1:x1+w1+1]
+    tem = tem_thersh[y1:y1+h1,x1:x1+w1]
     #重设标准大小,保存模板
     tem = cv2.resize(tem,(100,160))
     template[i] = tem
@@ -68,8 +71,12 @@ for i in range(len(cont_list)):
 
 # #2.银行卡预处理
 #     #读取
-card_img = cv2.imread('card.png')  #现在只能识别这一张，嘻嘻
+#'card6:0和4，3和9，而且块区分也存在错误'
+
+card_img = cv2.imread('card.jpg')#现在只能识别这一张，嘻嘻
 card_img =cv2.resize(card_img,(232,140))
+h = card_img.shape[0]
+# card_img = card_img[int(h/2):]#为了方便
 
 #     #灰度图
 card_gray = cv2.cvtColor(card_img,cv2.COLOR_BGR2GRAY)
@@ -97,16 +104,17 @@ show(card_balck)
 
 #     ##长宽比例去除误差
 black_contours, black_hierachy = cv2.findContours(card_balck.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-# cv2.drawContours(card_img,number_contours,-1,(0,0,255),3)
+# cv2.drawContours(card_img,black_contours,-1,(0,0,255),3)
 # show(card_img)
 
 #     #遍历取出数字块
 black_loc = []
+
 for (i,c) in enumerate(black_contours):
     (x,y,w,h) = cv2.boundingRect(c)
     ar = w/float(h)
-    if ar > 1.5 and ar < 3.5:
-        if (w > 40 and w < 55) and (h > 10 and h < 20):
+    if ar > 1.8 and ar <3.5 :
+        if (w > 25 and w < 60) and (h > 13 and h < 30):
             cv2.rectangle(card_img,(x,y),(x+w,y+h),(0,0,255),3)
             black_loc.append([x,y,w,h])#加入目标
 show(card_img)
@@ -116,30 +124,35 @@ number = []#数字总集
 
 #对每个数字块处理，提取出每个数字进行匹配
 for (x,y,w,h) in black_loc:
+
     #每个块中数字的位置
-    roi = card_gray[y-1:y + 1+ h, x-1:x+w+1]
+    roi = card_gray[y:y+ h, x:x+w]
     #突出字体
     # show(roi)
 
     #二值化
     ret, number_img = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY|cv2.THRESH_OTSU)
+    #闭运算
+
     # #轮廓检测设立标签,外轮廓，点集
     number_contours, hierachy, = cv2.findContours(number_img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     # dra = cv2.drawContours(roi.copy(), number_contours,-1,(0,0,255),1)
     # show(dra)
 
-    #获取每个数字的轮廓点
+    #数字排序
     number_loc = []
     for (i, c) in enumerate(number_contours):
         (x, y, w, h) = cv2.boundingRect(c)
-        cv2.rectangle(roi,(x,y),(x+w,y+h),(0,0,255),3)
-        number_loc.append([x, y, w, h])  # 加入目标
-    show(roi)
+
+        if not (w < 5 or h < 3):
+            cv2.rectangle(roi,(x,y),(x+w,y+h),(0,0,255),3)
+            number_loc.append([x, y, w, h])  # 加入目标
+        # show(roi)
     number_loc = sorted(number_loc, key=lambda x: x[0])  # 进行一个排序
 
     #对每一个数字进行匹配
     for (x,y,w,h) in number_loc:
-        one_number = number_img[y-1:y + 1+ h, x-1: x+w+1]#从二值化过的数字块扣下来
+        one_number = number_img[y:y+ h, x: x+w]#从二值化过的数字块扣下来
 
         one_number = cv2.resize(one_number,(100,160))
         show(one_number)
